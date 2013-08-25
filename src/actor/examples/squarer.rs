@@ -1,8 +1,3 @@
-A few experiments with concurrency in rust. 
-
-I am trying to learn rust, so helpful comments are very welcome, but so far the code looks like this:
-
-```rust
 use actor::{spawn_actor_to_stream};
 
 struct Squarer {
@@ -28,9 +23,8 @@ fn test_squarer() {
             chan.send(*i);
             port
         };
-        
     let mut norm2 = 0;
     for port in results.iter() { norm2 += port.recv(); }
     assert_eq!(norm2 , 1 * 1 + 2 * 2 + 3 * 3 + 4 * 4 + 5 * 5);
 }
-```
+
