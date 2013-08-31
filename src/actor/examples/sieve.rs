@@ -1,15 +1,16 @@
 use std::vec;
 use std::comm::{SharedChan};
-
 use extra::sort::quick_sort3;
+use actor::{ActorWithChan};
 
-use actor::{spawn_actor_to_chan};
+pub enum SieveMsg { 
+    Try(int), 
+    Gather, 
+}
 
-pub enum SieveMsg { Try(int), Gather, }
-
-struct Sieve {
+struct Sieve<'self> {
     divisor: int,
-    next: Option<~Chan<SieveMsg>>,
+    next: Option<Chan<SieveMsg>>,
     master: SharedChan<int>,
 }
 
@@ -18,26 +19,25 @@ fn new_sieve(args: (int, SharedChan<int>)) -> Sieve {
     Sieve{divisor: divisor, next: None, master: master,}
 }
 
-fn on_receive(actor: &mut Sieve, msg: SieveMsg) -> bool {
+fn on_receive(sieve: &mut Sieve, msg: SieveMsg) -> bool {
     match msg {
         Try(number) => {
-            if (number % actor.divisor != 0) {
-                match actor.next {
+            if (number % sieve.divisor != 0) {
+                match sieve.next {
                     Some(ref chan) => { chan.send(Try(number)); }
                     None => {
-                        let chan =
-                            spawn_actor_to_chan((number,
-                                                 actor.master.clone()),
-                                                new_sieve, on_receive);
-                        actor.next = Some(~chan);
+                        let actor =
+                            ActorWithChan::new((number, sieve.master.clone()),
+                                               new_sieve, on_receive);
+                        sieve.next = Some(actor.chan);
                     }
                 }
             };
             true //survive
         }
         Gather => {
-            actor.master.send(actor.divisor);
-            match actor.next {
+            sieve.master.send(sieve.divisor);
+            match sieve.next {
                 Some(ref c) => { c.send(Gather); }
                 None => { }
             }
@@ -54,10 +54,9 @@ fn test_sieve() {
     let (master_port, master_chan) = stream();
     let master = SharedChan::new(master_chan);
 
-    let head =
-        spawn_actor_to_chan((2, master.clone()), new_sieve, on_receive);
-    for i in range(3, 20) { head.send(Try(i)); }
-    head.send(Gather);
+    let head = ActorWithChan::new((2, master.clone()), new_sieve, on_receive);
+    for i in range(3, 20) { head.chan.send(Try(i)); }
+    head.chan.send(Gather);
 
     let expected = [2, 3, 5, 7, 11, 13, 17, 19];
     let mut primes = vec::from_fn(8, |_| master_port.recv());

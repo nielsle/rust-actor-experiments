@@ -1,6 +1,6 @@
 use std::comm::{SharedChan};
 
-use actor::{spawn_actor, spawn_actor_to_stream};
+use actor::{Actor};
 
 enum PingPongMsg { Ping, Pong, }
 
@@ -11,10 +11,9 @@ struct PingPong {
     master: SharedChan<bool>,
 }
 
-fn new_ping_pong(args: ((int, SharedChan<bool>), Chan<PingPongMsg>)) ->
+fn new_ping_pong(args: (int, Chan<PingPongMsg>, SharedChan<bool>)) ->
  PingPong {
-    let (head, chan) = args;
-    let (counter, master) = head;
+    let (counter, chan, master) = args;
     PingPong{counter: counter, chan: chan, master: master,}
 }
 
@@ -29,20 +28,18 @@ fn on_receive(actor: &mut PingPong, msg: PingPongMsg) -> bool {
 #[test]
 fn test_pingping() {
 
-    // Prepare result
     let (master_port, master_chan) = stream();
-    let master = SharedChan::new(master_chan);
+    let master_chan = SharedChan::new(master_chan);
 
-    // Spawn first actor
-    let (port, chan) =
-        spawn_actor_to_stream((10, master.clone()), new_ping_pong,
-                              on_receive);
-    chan.send(Ping);
-    // Spawning second actor using port and chan
-    spawn_actor(port, ((10, master.clone()), chan), new_ping_pong,
-                on_receive);
+    let (port1, chan1) = stream();
+    let (port2, chan2) = stream();
+    chan1.send(Ping);
+    Actor::new(port1, (10, chan2, master_chan.clone()), new_ping_pong,
+               on_receive);
+    Actor::new(port2, (10, chan1, master_chan.clone()), new_ping_pong,
+               on_receive);
 
     // Both actors must terminate
-    assert_eq!(true , master_port . recv ( ));
-    assert_eq!(true , master_port . recv ( ));
+    assert_eq!(true , master_port.recv());
+    assert_eq!(true , master_port.recv());
 }

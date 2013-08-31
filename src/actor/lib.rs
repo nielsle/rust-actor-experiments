@@ -5,5 +5,8 @@
 #[license = "MIT/ASL2"];
 #[crate_type = "lib"];
 
+extern mod extra;
+
+extern mod std;
 
 pub mod actor;
