@@ -1,7 +1,10 @@
+extern mod actor;
+extern mod extra;
+
 use std::vec;
 use std::comm::{SharedChan};
 use extra::sort::quick_sort3;
-use actor::{ActorWithChan};
+use actor::actor::{ActorWithChan};
 
 pub enum SieveMsg { 
     Try(int), 
@@ -47,8 +50,7 @@ fn on_receive(sieve: &mut Sieve, msg: SieveMsg) -> bool {
 }
 
 
-#[test]
-fn test_sieve() {
+fn main() {
 
     // Prepare result
     let (master_port, master_chan) = stream();

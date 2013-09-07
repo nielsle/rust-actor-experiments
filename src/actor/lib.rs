@@ -1,4 +1,4 @@
-#[link(name = "actor-experiments",
+#[link(name = "actor",
        vers = "0.0",
        uuid = "8769ffe0-0800-11e3-8ffd-0800200c9a66")];
 #[comment = "Rust Actor library"];

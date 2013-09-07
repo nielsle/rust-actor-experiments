@@ -1,6 +1,8 @@
-use std::comm::{SharedChan};
+extern mod actor;
+extern mod std;
 
-use actor::{Actor};
+use std::comm::{SharedChan};
+use actor::actor::{Actor};
 
 enum PingPongMsg { Ping, Pong, }
 
@@ -25,8 +27,7 @@ fn on_receive(actor: &mut PingPong, msg: PingPongMsg) -> bool {
     true
 }
 
-#[test]
-fn test_pingping() {
+fn main() {
 
     let (master_port, master_chan) = stream();
     let master_chan = SharedChan::new(master_chan);

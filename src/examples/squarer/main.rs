@@ -1,13 +1,15 @@
+extern mod actor;
+extern mod std;
+
 use std::int;
 
-use actor::{ActorWithStream};
+use actor::actor::{ActorWithStream};
 
 struct Exponent {
     value: uint,
 }
 
-#[test]
-fn test_exponent() {
+fn main() {
 
     let mut results =
         do range(0, 6).map |i: int| {

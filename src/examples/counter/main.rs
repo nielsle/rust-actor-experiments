@@ -1,4 +1,6 @@
-use actor::{ActorWithStream};
+extern mod actor;
+
+use actor::actor::{ActorWithStream};
 
 pub enum CounterMsg { Add(int), GetSum, }
 
@@ -10,8 +12,7 @@ fn new_counter(value: int) -> Counter {
     Counter{value: value,}
 }
 
-#[test]
-fn test_counter() {
+fn main() {
     let actor =
         do ActorWithStream::new(0, new_counter) 
                        |actor, chan, msg: CounterMsg| {
