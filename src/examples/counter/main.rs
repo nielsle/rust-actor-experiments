@@ -1,6 +1,8 @@
 extern mod actor;
+extern mod std;
 
-use actor::actor::{ActorWithStream};
+use actor::actor::{Actor, SurviveOrDie, Survive};
+use actor::system::{System};
 
 pub enum CounterMsg { Add(int), GetSum, }
 
@@ -8,25 +10,24 @@ pub struct Counter {
     value: int,
 }
 
-fn new_counter(value: int) -> Counter {
-    Counter{value: value,}
+impl <C: GenericChan<int>> Actor<CounterMsg, int, C> for Counter {
+    fn on_receive(&mut self, msg: CounterMsg, chan: &C) -> SurviveOrDie {
+        match msg {
+            Add(value) => self.value += value,
+            GetSum => chan.send(self.value)
+        };
+        Survive
+    }
 }
 
 fn main() {
-    let actor =
-        do ActorWithStream::new(0, new_counter) 
-                       |actor, chan, msg: CounterMsg| {
-            match msg {
-                Add(value) => actor.value += value,
-                GetSum => chan.send(actor.value)
-            }
-            true
-        };
+    let mut system = System::new();
+    let counter = system.add_actor(0, |value| Counter{value: value,});
 
-    for i in range(0, 100) { actor.chan.send(Add(i)); }
+    for i in range(0, 100) { counter.chan.send(Add(i)); }
+    counter.chan.send(GetSum);
 
-    actor.chan.send(GetSum);
-    let result: int = actor.port.recv();
+    let result: int = counter.port.recv();
     assert_eq!(result , 100 * 99 / 2)
 }
 

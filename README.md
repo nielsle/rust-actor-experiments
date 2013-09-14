@@ -1,35 +1,34 @@
 A few experiments with concurrency in rust. 
 
-I am trying to learn rust, so helpful comments are very welcome, but so far the code looks like this:
+I am trying to learn the language, so helpful comments are very welcome. So far the code looks like this:
 
 ```rust
-use std::int;
+extern mod actor;
+extern mod std;
 
-use actor::{ActorWithStream};
+use actor::actor::{Actor, SurviveOrDie, Survive};
+use actor::system::{System};
 
-struct Exponent {
-    value: uint,
+struct Squarer;
+
+impl <C: GenericChan<int>> Actor<int, int, C> for Squarer {
+    fn on_receive(&mut self, msg: int, chan: &C) -> SurviveOrDie {
+        chan.send(msg * msg);
+        Survive
+    }
 }
 
-#[test]
-fn test_exponent() {
+fn main() {
 
-    let mut results =
-        do range(0, 6).map |i: int| {
-        
-            //The number 2u is stored in exponent.value
-            let actor =
-                do ActorWithStream::new(2u, |a| { Exponent{value: a,}
-                                    }) |exponent, chan, msg| {
-                    chan.send(int::pow(msg, exponent.value));
-                    true
-                };
+    let mut system = System::new();
 
-            actor.chan.send(i);
-            actor.port
+    let mut squarers =
+        do range(0, 6).map |i| {
+            let squarer = system.add_actor((), |_| { Squarer });
+            squarer.chan.send(i);
+            squarer
         };
-    let mut norm2 = 0;
-    for port in results { norm2 += port.recv(); }
+
+    let norm2 = squarers.fold(0, |sum, squarer| sum + squarer.port.recv());
     assert_eq!(norm2 , 1 * 1 + 2 * 2 + 3 * 3 + 4 * 4 + 5 * 5);
-}
-```
+}```

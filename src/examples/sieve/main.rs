@@ -1,68 +1,80 @@
 extern mod actor;
 extern mod extra;
+extern mod std;
 
-use std::vec;
-use std::comm::{SharedChan};
-use extra::sort::quick_sort3;
-use actor::actor::{ActorWithChan};
+use actor::actor::{Actor, SurviveOrDie, Survive, Die};
+use actor::system::System;
+use std::iter::{Iterator};
 
-pub enum SieveMsg { 
-    Try(int), 
-    Gather, 
+pub enum SieveMsg { Try(int), Prime(int), Gather, }
+
+struct Sieve {
+    divisor: Option<int>,
+}
+impl Sieve {
+
+    fn new() -> Sieve { Sieve{divisor: None,} }
 }
 
-struct Sieve<'self> {
-    divisor: int,
-    next: Option<Chan<SieveMsg>>,
-    master: SharedChan<int>,
-}
+impl <C: GenericChan<SieveMsg>> Actor<SieveMsg, SieveMsg, C> for Sieve {
 
-fn new_sieve(args: (int, SharedChan<int>)) -> Sieve {
-    let (divisor, master) = args;
-    Sieve{divisor: divisor, next: None, master: master,}
-}
-
-fn on_receive(sieve: &mut Sieve, msg: SieveMsg) -> bool {
-    match msg {
-        Try(number) => {
-            if (number % sieve.divisor != 0) {
-                match sieve.next {
-                    Some(ref chan) => { chan.send(Try(number)); }
-                    None => {
-                        let actor =
-                            ActorWithChan::new((number, sieve.master.clone()),
-                                               new_sieve, on_receive);
-                        sieve.next = Some(actor.chan);
+    fn on_receive(&mut self, msg: SieveMsg, chan: &C) -> SurviveOrDie {
+        match msg {
+            Try(number) => {
+                match (self.divisor) {
+                    None => { self.divisor = Some(number) }
+                    Some(div) => {
+                        if (number % div != 0) { chan.send(Try(number)) }
                     }
-                }
-            };
-            true //survive
-        }
-        Gather => {
-            sieve.master.send(sieve.divisor);
-            match sieve.next {
-                Some(ref c) => { c.send(Gather); }
-                None => { }
+                };
+                Survive
             }
-            false //die
+            Gather => {
+                match self.divisor {
+                    Some(div) => chan.send(Prime(div)),
+                    None => { }
+                }
+                chan.send(Gather);
+                Die
+            }
+            Prime(number) => { 
+                chan.send(Prime(number)); Survive 
+            }
         }
     }
 }
 
-
 fn main() {
 
-    // Prepare result
-    let (master_port, master_chan) = stream();
-    let master = SharedChan::new(master_chan);
+    let mut system = System::new();
 
-    let head = ActorWithChan::new((2, master.clone()), new_sieve, on_receive);
-    for i in range(3, 20) { head.chan.send(Try(i)); }
-    head.chan.send(Gather);
+    // Create pipeline
+    let (port, chan) = stream();
+    let mut port = port;
+    for _ in range (0,10) {
+        port = system.add_actor_from_port(port, (), |_| Sieve::new()).port;
+    }
 
-    let expected = [2, 3, 5, 7, 11, 13, 17, 19];
-    let mut primes = vec::from_fn(8, |_| master_port.recv());
-    quick_sort3(primes);
+    // Send numbers  waiting for output
+    for number in range(2, 20) {
+        chan.send(Try(number));
+        if (port.peek()) { break  }
+    }
+
+    // Read primes
+    chan.send(Gather);
+    let mut primes: ~[int] = ~[];
+    loop  {
+        let msg: SieveMsg = port.recv();
+        match msg {
+            Prime(number) => { primes = std::vec::append_one(primes, number) }
+            Try(_) => { }
+            Gather => { break  }
+        }
+    }
+
+    // Check output
+    let expected: ~[int] = ~[2, 3, 5, 7, 11, 13, 17, 19];
     for (i, j) in expected.iter().zip(primes.iter()) { assert_eq!(i , j); }
 }
 
